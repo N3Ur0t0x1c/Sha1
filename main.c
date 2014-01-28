@@ -4,7 +4,7 @@
 #include "sha1.h"
 
 
-int sha_pad_message(char *message, uint32_t len, char *trgt)
+int sha_pad_message(char *message, uint32_t len, char *trgt)    // this function works..
 {
 
     int i=0;
