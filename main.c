@@ -112,23 +112,23 @@ int main()
 
         for(j=0; j<80; j++)
         {
-            if(i>=0 || i<20)
+            if((i>=0) && (i<20))
             {
                 sha1->f = ((sha1->b)&(sha1->c)) | ((~(sha1->b))&(sha1->d));
                 k = 0x5A827999;
 
             }
-            else if(i>=20 || i<40)
+            else if((i>=20) && (i<40))
             {
                 sha1->f = (sha1->b)^(sha1->c)^(sha1->d);
                 k = 0x6ED9EBA1;
             }
-            else if(i>=40 || i<60)
+            else if((i>=40) && (i<60))
             {
                 sha1->f = ((sha1->b)&(sha1->c)) | ((sha1->b)&(sha1->d)) | ((sha1->c)&(sha1->d));
                 k = 0x8F1BBCDC;
             }
-            else if(i>=60 || i<79)
+            else if((i>=60) && (i<79))
             {
                 sha1->f = (sha1->b)^(sha1->c)^(sha1->d);
                 k = 0xCA62C1D6;
