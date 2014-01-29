@@ -8,7 +8,7 @@ void debug_print(char *mss, uint32_t l)
 {
     int i;
     printf("\nDEBUG PRINT START");
-    for(i=0; i<l/8; i++)
+    for(i=0; i<(l/8); i++)
     {
         printf("\n%c", *(mss+i));
     }
@@ -17,8 +17,11 @@ void debug_print(char *mss, uint32_t l)
 
 uint32_t padded_length_in_bits(uint32_t len)
 {
-
-    while((len%64)!=0)
+    if(len%64 == 56)
+    {
+        len++;
+    }
+    while((len%64)!=56)
     {
         len++;
     }
@@ -28,25 +31,18 @@ uint32_t padded_length_in_bits(uint32_t len)
 int main()
 {
     struct sha *sha1;
-    int i,j;
-    char text[] = "The quick brown fox jumps over the lazy dog";
-    char *buffer;
+    unsigned int i,j;
+    unsigned char text[] = "abc";
+    unsigned char *buffer;
     uint32_t length = strlen(text);
     uint32_t bits;
     uint32_t temp,k;
+    uint32_t lb = length*8;
 
     sha1 = (struct sha *) malloc(sizeof(struct sha));
     bits = padded_length_in_bits(length);
-
-
-    printf("%u", bits);
-
-
-    buffer = (char *) malloc(bits/8);
+    buffer = (char *) malloc((bits/8)+8);
     memcpy(buffer, text, length);
-
-
-    printf("\ninitial length = %u", length);
 
 
     //add 1 on the last of the message..
@@ -56,21 +52,19 @@ int main()
         *(buffer+i) = 0x00;
     }
 
-    //append the length to the last words... using 32 bit only so the
+    /*append the length to the last words... using 32 bit only so the
     //limitation will be this function can calculate up to 4GB files SHA1.
-//    *(buffer +(bits/8)-8) = (length>>56) & 0xFF;
-  //  *(buffer +(bits/8)-7) = (length>>48) & 0xFF;
+	//*(buffer +(bits/8)-8) = (length>>56) & 0xFF;
+  	//*(buffer +(bits/8)-7) = (length>>48) & 0xFF;
     //*(buffer +(bits/8)-6) = (length>>40) & 0xFF;
     //*(buffer +(bits/8)-5) = (length>>32) & 0xFF;
-    *(buffer +(bits/8)-4) = (length>>24) & 0xFF;
-    *(buffer +(bits/8)-3) = (length>>16) & 0xFF;
-    *(buffer +(bits/8)-2) = (length>>8) & 0xFF;
-    *(buffer +(bits/8)-1) = (length>>0) & 0xFF;
+    */
 
+    *(buffer +(bits/8)+4+0) = (lb>>24) & 0xFF;
+    *(buffer +(bits/8)+4+1) = (lb>>16) & 0xFF;
+    *(buffer +(bits/8)+4+2) = (lb>>8) & 0xFF;
+    *(buffer +(bits/8)+4+3) = (lb>>0) & 0xFF;
 
-    printf("length =  %u\n",length);
-    printf("\n%u",bits);
-    debug_print(buffer, bits);
 
     // initialize the default digest values
     sha1->digest[0] = 0x67452301;
@@ -80,7 +74,7 @@ int main()
     sha1->digest[4] = 0xC3D2E1F0;
 
     //main loop
-    for(i=0; i<(bits/512); i++)
+    for(i=0; i<((bits+64)/512); i++)
     {
         //first empty the block for each pass..
         for(j=0; j<80; j++)
@@ -88,13 +82,17 @@ int main()
             sha1->w[j] = 0x00;
         }
 
+
         //fill the first 16 words with the characters read directly from the buffer.
         for(j=0; j<16; j++)
         {
-            sha1->w[j] = (uint32_t) (buffer[j*4+0]<<24);
-            sha1->w[j] |= (uint32_t) (buffer[j*4+1]<<16);
-            sha1->w[j] |= (uint32_t) (buffer[j*4+2]<<8);
-            sha1->w[j] |= (uint32_t) (buffer[j*4+3]);
+            sha1->w[j] =buffer[j*4+0];
+            sha1->w[j] = sha1->w[j]<<8;
+            sha1->w[j] |= buffer[j*4+1];
+            sha1->w[j] = sha1->w[j]<<8;
+            sha1->w[j] |= buffer[j*4+2];
+            sha1->w[j] = sha1->w[j]<<8;
+            sha1->w[j] |= buffer[j*4+3];
         }
 
         //fill the rest 64 words using the formula
@@ -103,43 +101,54 @@ int main()
             sha1->w[j] = (ROTL(1,(sha1->w[j-3] ^ sha1->w[j-8] ^ sha1->w[j-14] ^ sha1->w[j-16])));
         }
 
-        //initialize hash for this chunck reading the has stored in the structure digest
+
+        //initialize hash for this chunck reading that has been stored in the structure digest
         sha1->a = sha1->digest[0];
         sha1->b = sha1->digest[1];
         sha1->c = sha1->digest[2];
-        sha1->d = sha1->digest[4];
-        sha1->e = sha1->digest[5];
+        sha1->d = sha1->digest[3];
+        sha1->e = sha1->digest[4];
 
+		//for all the 80 32bit blocks calculate f and use k accordingly per specification.
         for(j=0; j<80; j++)
         {
-            if((i>=0) && (i<20))
+            if((j>=0) && (j<20))
             {
                 sha1->f = ((sha1->b)&(sha1->c)) | ((~(sha1->b))&(sha1->d));
                 k = 0x5A827999;
 
             }
-            else if((i>=20) && (i<40))
+            else if((j>=20) && (j<40))
             {
                 sha1->f = (sha1->b)^(sha1->c)^(sha1->d);
                 k = 0x6ED9EBA1;
             }
-            else if((i>=40) && (i<60))
+            else if((j>=40) && (j<60))
             {
                 sha1->f = ((sha1->b)&(sha1->c)) | ((sha1->b)&(sha1->d)) | ((sha1->c)&(sha1->d));
                 k = 0x8F1BBCDC;
             }
-            else if((i>=60) && (i<79))
+            else if((j>=60) && (j<80))
             {
                 sha1->f = (sha1->b)^(sha1->c)^(sha1->d);
                 k = 0xCA62C1D6;
             }
 
-            temp = ROTL(5,(sha1->a)) + (sha1->f) + (sha1->e) + k + sha1->w[i];
-            (sha1->e) = (sha1->d);
-            (sha1->d) = (sha1->c);
-            (sha1->c) = ROTL(30,(sha1->b));
-            (sha1->b) = (sha1->a);
-            (sha1->a) = temp;
+            temp = ROTL(5,(sha1->a)) + (sha1->f) + (sha1->e) + k + sha1->w[j];
+            sha1->e = (sha1->d);
+            sha1->d = (sha1->c);
+            sha1->c = ROTL(30,(sha1->b));
+            sha1->b = (sha1->a);
+            sha1->a = temp;
+
+            /* Detail of each pass for debugging purpose.
+            printf("\n\ndetail %d passes a b c d and e values..\n",j);
+            printf("a\tb\tc\td\te\n");
+            printf("%x\t%x\t%x\t%x\t%x\n",sha1->a, sha1->b, sha1->c, sha1->d, sha1->e);
+            */
+
+            //reset temp to 0 to be in safe side only, not mandatory.
+            temp =0x00;
 
 
         }
@@ -152,19 +161,21 @@ int main()
         sha1->digest[4] += sha1->e;
 
 
+		//since we used 512bit size block per each pass, let us update the buffer pointer accordingly.
+        buffer = buffer+64;
 
     }
 
-
-    printf("\n\nSHA1 HASH IS:\n");
-    //printf("%d\n", sizeof(unsigned int));
+	//print SHA1 hash og given message.
+    printf("\n\nSHA1 HASH O IS:\n");
     for(i=0; i<5; i++)
     {
         printf("%X ",sha1->digest[i]);
     }
+    printf("\n");
 
-
-
+	//free the memory used.
     free(buffer);
+    free(sha1);
     return 1;
 }
