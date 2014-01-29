@@ -32,7 +32,7 @@ int main()
 {
     struct sha *sha1;
     unsigned int i,j;
-    unsigned char text[] = "abc";
+    unsigned char text[] = "N3Ur0t0x1c";
     unsigned char *buffer;
     uint32_t length = strlen(text);
     uint32_t bits;
@@ -41,7 +41,7 @@ int main()
 
     sha1 = (struct sha *) malloc(sizeof(struct sha));
     bits = padded_length_in_bits(length);
-    buffer = (char *) malloc((bits/8)+8);
+    buffer = (unsigned char *) malloc((bits/8)+8);
     memcpy(buffer, text, length);
 
 
@@ -54,10 +54,10 @@ int main()
 
     /*append the length to the last words... using 32 bit only so the
     //limitation will be this function can calculate up to 4GB files SHA1.
-	//*(buffer +(bits/8)-8) = (length>>56) & 0xFF;
-  	//*(buffer +(bits/8)-7) = (length>>48) & 0xFF;
-    //*(buffer +(bits/8)-6) = (length>>40) & 0xFF;
-    //*(buffer +(bits/8)-5) = (length>>32) & 0xFF;
+	// *(buffer +(bits/8)-8) = (length>>56) & 0xFF;
+  	// *(buffer +(bits/8)-7) = (length>>48) & 0xFF;
+    // *(buffer +(bits/8)-6) = (length>>40) & 0xFF;
+    // *(buffer +(bits/8)-5) = (length>>32) & 0xFF;
     */
 
     *(buffer +(bits/8)+4+0) = (lb>>24) & 0xFF;
