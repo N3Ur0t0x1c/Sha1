@@ -9,3 +9,4 @@ http://en.wikipedia.org/wiki/SHA-1
 
 Refer to documentation;
 The SHA-1 DIARIES.PDF
+https://drive.google.com/file/d/0B-LQ4Q7BwGggbWNrR1RtS1lRQTQ/edit?usp=sharing
