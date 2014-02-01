@@ -1,148 +1,275 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
-#include "sha1.h"
+#include "shalib.h"
 
 
-int sha_pad_message(char *message, uint32_t len, char *trgt)    // this function works..
+void debug_print(char *mss, uint32_t l)
 {
-
-    int i=0;
-    char *orgtrgt;
-    uint32_t orglen = len;
-    uint32_t orgbits = len*8;
-    uint32_t bits = orgbits;
-    while((bits%512) != 0)
+    int i;
+    printf("\nDEBUG PRINT START");
+    for(i=0; i<(l/8); i++)
     {
-        bits++;
+        printf("\n%c", *(mss+i));
     }
+    printf("\nDEBUG PRINT END\n");
+}
 
-    realloc(trgt, (bits/8));
-    orgtrgt = trgt;
-    memcpy(trgt, message, len);
-    //DEBUG printf("\n ORGLEN = %u\n", len);
-
-    /* DEBUG
-    for(i=0; i<len; i++)
-    {
-        printf("%c\n",*(trgt+i));
-    }
-    */
-
-    //DEBUG printf("%u", bits);
-    //DEBUG printf("\n");
-
-    /* DEBUG
-    for(i=0; i<len; i++)
-    {
-        printf("%c", *(trgt+i));
-    }
-    */
-
-    //DEBUG printf("%c\n", *(trgt+len-1));
-    *(trgt+len) = 0x80;
-
-    //DEBUG printf("%c\n", *(trgt+len));
-
-    len++;
-    trgt = trgt+len;
-
-    i=1;
-    while((orgbits%512)!=0)
+uint32_t padded_length_in_bits(uint32_t len)
+{
+    if(len%64 == 56)
     {
         len++;
-        orgbits = orgbits+8;
-        //DEBUG  printf("\nORGBITS = %u", orgbits);
-        ++i;
-        *(trgt+i) = 0x00;
-
-
     }
-    trgt = orgtrgt;
-    // DEBUG printf("\n After while loop length = %u bytes and %u bits\n", orgbits/8, orgbits);
-
-    *(trgt +(orgbits/8)-8) = (orglen>>56) & 0xFF;
-    *(trgt +(orgbits/8)-7) = (orglen>>48) & 0xFF;
-    *(trgt +(orgbits/8)-6) = (orglen>>40) & 0xFF;
-    *(trgt +(orgbits/8)-5) = (orglen>>32) & 0xFF;
-    *(trgt +(orgbits/8)-4) = (orglen>>24) & 0xFF;
-    *(trgt +(orgbits/8)-3) = (orglen>>16) & 0xFF;
-    *(trgt +(orgbits/8)-2) = (orglen>>8) & 0xFF;
-    *(trgt +(orgbits/8)-1) = (orglen>>0) & 0xFF;
-
-    /*
-    DEBUG  printf("\nfinal length = %u\n", orgbits);
-
-    len = orgbits/8;
-    for(i=0; i<len; i++)
+    while((len%64)!=56)
     {
-        printf("%c\n",*(trgt+i));
+        len++;
     }
+    return len*8;
+}
+
+
+int calculate_sha1(struct sha *sha1, unsigned char *text, uint32_t length)
+{
+    //struct sha *sha1;
+    unsigned int i,j;
+    //unsigned char text[] = "N3Ur0t0x1c";
+    unsigned char *buffer;
+   // uint32_t length = strlen((char *)text);
+    uint32_t bits;
+    uint32_t temp,k;
+    uint32_t lb = length*8;
+
+    //sha1 = (struct sha *) malloc(sizeof(struct sha));
+    bits = padded_length_in_bits(length);
+    buffer = (unsigned char *) malloc((bits/8)+8);
+    memcpy(buffer, text, length);
+
+
+    //add 1 on the last of the message..
+    *(buffer+length) = 0x80;
+    for(i=length+1; i<(bits/8); i++)
+    {
+        *(buffer+i) = 0x00;
+    }
+
+    /*append the length to the last words... using 32 bit only so the
+    //limitation will be this function can calculate up to 4GB files SHA1.
+	// *(buffer +(bits/8)-8) = (length>>56) & 0xFF;
+  	// *(buffer +(bits/8)-7) = (length>>48) & 0xFF;
+    // *(buffer +(bits/8)-6) = (length>>40) & 0xFF;
+    // *(buffer +(bits/8)-5) = (length>>32) & 0xFF;
     */
 
-    return orgbits/8;
+    *(buffer +(bits/8)+4+0) = (lb>>24) & 0xFF;
+    *(buffer +(bits/8)+4+1) = (lb>>16) & 0xFF;
+    *(buffer +(bits/8)+4+2) = (lb>>8) & 0xFF;
+    *(buffer +(bits/8)+4+3) = (lb>>0) & 0xFF;
 
-}
 
+    // initialize the default digest values
+    sha1->digest[0] = 0x67452301;
+    sha1->digest[1] = 0xEFCDAB89;
+    sha1->digest[2] = 0x98BADCFE;
+    sha1->digest[3] = 0x10325476;
+    sha1->digest[4] = 0xC3D2E1F0;
 
-int parse_sha1_block(struct sha *sha1, char *message)
-{
-    uint32_t i,j;
-    printf("\n%c %c %c %c\n",message[56], message[57], message[58], message[59]);
-
-    //Emptying the sha1->msg[i] block.
-
-    for(i=0; i<80; i++)
+    //main loop
+    for(i=0; i<((bits+64)/512); i++)
     {
-        sha1->msg[i] = 0x00;
+        //first empty the block for each pass..
+        for(j=0; j<80; j++)
+        {
+            sha1->w[j] = 0x00;
+        }
+
+
+        //fill the first 16 words with the characters read directly from the buffer.
+        for(j=0; j<16; j++)
+        {
+            sha1->w[j] =buffer[j*4+0];
+            sha1->w[j] = sha1->w[j]<<8;
+            sha1->w[j] |= buffer[j*4+1];
+            sha1->w[j] = sha1->w[j]<<8;
+            sha1->w[j] |= buffer[j*4+2];
+            sha1->w[j] = sha1->w[j]<<8;
+            sha1->w[j] |= buffer[j*4+3];
+        }
+
+        //fill the rest 64 words using the formula
+        for(j=16; j<80; j++)
+        {
+            sha1->w[j] = (ROTL(1,(sha1->w[j-3] ^ sha1->w[j-8] ^ sha1->w[j-14] ^ sha1->w[j-16])));
+        }
+
+
+        //initialize hash for this chunck reading that has been stored in the structure digest
+        sha1->a = sha1->digest[0];
+        sha1->b = sha1->digest[1];
+        sha1->c = sha1->digest[2];
+        sha1->d = sha1->digest[3];
+        sha1->e = sha1->digest[4];
+
+		//for all the 80 32bit blocks calculate f and use k accordingly per specification.
+        for(j=0; j<80; j++)
+        {
+            if((j>=0) && (j<20))
+            {
+                sha1->f = ((sha1->b)&(sha1->c)) | ((~(sha1->b))&(sha1->d));
+                k = 0x5A827999;
+
+            }
+            else if((j>=20) && (j<40))
+            {
+                sha1->f = (sha1->b)^(sha1->c)^(sha1->d);
+                k = 0x6ED9EBA1;
+            }
+            else if((j>=40) && (j<60))
+            {
+                sha1->f = ((sha1->b)&(sha1->c)) | ((sha1->b)&(sha1->d)) | ((sha1->c)&(sha1->d));
+                k = 0x8F1BBCDC;
+            }
+            else if((j>=60) && (j<80))
+            {
+                sha1->f = (sha1->b)^(sha1->c)^(sha1->d);
+                k = 0xCA62C1D6;
+            }
+
+            temp = ROTL(5,(sha1->a)) + (sha1->f) + (sha1->e) + k + sha1->w[j];
+            sha1->e = (sha1->d);
+            sha1->d = (sha1->c);
+            sha1->c = ROTL(30,(sha1->b));
+            sha1->b = (sha1->a);
+            sha1->a = temp;
+
+            /* Detail of each pass for debugging purpose.
+            printf("\n\ndetail %d passes a b c d and e values..\n",j);
+            printf("a\tb\tc\td\te\n");
+            printf("%x\t%x\t%x\t%x\t%x\n",sha1->a, sha1->b, sha1->c, sha1->d, sha1->e);
+            */
+
+            //reset temp to 0 to be in safe side only, not mandatory.
+            temp =0x00;
+
+
+        }
+
+        // append to total hash.
+        sha1->digest[0] += sha1->a;
+        sha1->digest[1] += sha1->b;
+        sha1->digest[2] += sha1->c;
+        sha1->digest[3] += sha1->d;
+        sha1->digest[4] += sha1->e;
+
+
+		//since we used 512bit size block per each pass, let us update the buffer pointer accordingly.
+        buffer = buffer+64;
+
     }
 
-    for(j=0; j<16; j++)
+	/*print SHA1 hash og given message.
+    printf("\n\nSHA1 HASH O IS:\n");
+    for(i=0; i<5; i++)
     {
-        printf("\n%c %c %c %c",message[j*4], message[j*4+1], message[j*4+2], message[j*4+3]);
-
-        /* ek chin lai matra comment gareko kehi mili rako chaina.
-        sha1->msg[i] = (uint32_t) (message[i*4+0]<<24);
-        sha1->msg[i] |= (uint32_t) (message[i*4+1]<<16);
-        sha1->msg[i] |= (uint32_t) (message[i*4+2]<<8);
-        sha1->msg[i] |= (uint32_t) (message[i*4+3]);
-        */
+        printf("%X ",sha1->digest[i]);
     }
-    for(i=16; i<80; i++)
-    {
-        sha1->msg[i] = (ROTL(1,(sha1->msg[i-3] ^ sha1->msg[i-8] ^ sha1->msg[i-14] ^ sha1->msg[i-16])));
-    }
-    return 1;
-}
+    printf("\n");
+    */
 
-
-int main()
-{
-    struct sha *ssha;
-    char *target;
-    target = (char *) malloc (sizeof(char));
-    ssha = (struct sha *) malloc(sizeof(struct sha));
-    int i,x;
-    char nam[] = "Nirajkhadkaisagoodboy.Heissogentlethatheisveryprofoundofdoingthings.Letusseewhathappensifweincreasethesizeoftext.";
-    int number = sha_pad_message(nam, strlen(nam), target);
-
-
-    for(i=0; i<64; i++)
-    {
-        printf("%c\n", target[i]);
-    }
-
-    printf("\n\n\n\n");
-
-
-    x = parse_sha1_block(ssha, target);
-
-    printf("\n\n\n");
-    for(i=0; i<80;i++)
-    {
-        printf("message[%d] = %lu\n", i, ssha->msg[i]);
-    }
-
-
+	//free the memory used.
+    //free(buffer);
+    //free(sha1);
     return 0;
 }
+
+
+int main(int argc, char*argv[])
+{
+    char option;
+    int er,i;
+    uint32_t file_len;
+    struct sha *shaa;
+    unsigned char *buff;
+    FILE *fp;
+
+    shaa = (struct sha *) malloc(sizeof(struct sha));
+    printf("\n SHA1 GENERATOR V0.1b \n (C) 2014 Niraj Khadka (N3Ur0t0x1c)");
+    if(argc<3)
+    {
+        printf("\nusage: %s option content", argv[0]);
+        printf("\noption may be f for file and t for text");
+        printf("\ncontent may be filename for f option and text for t option\n");
+        free(shaa);
+        exit(0);
+    }
+    else
+    {
+        option = *argv[1];
+        switch(option)
+        {
+        case 't':
+            {
+                file_len = strlen((char *) argv[2]);
+                printf("\nstrlen is %u", file_len);
+                er = calculate_sha1(shaa,(unsigned char*)argv[2],file_len);
+                break;
+            }
+        case 'f':
+            {
+                if((fp =fopen(argv[2],"rb")) == NULL)
+                {
+                    printf("\nError opening file..\nExiting....");
+                    free(shaa);
+                    exit(0);
+                }
+
+                //Get file length
+                fseek(fp, 0, SEEK_END);
+                file_len=ftell(fp);
+                fseek(fp, 0, SEEK_SET);
+
+                //printf("\n File length = %ul",file_len);
+
+                //allocate memeory to read the whole file into  a buffer.
+                buff = (unsigned char *) malloc(file_len);
+
+                //If buffer is null then exit.
+                if(!buff)
+                {
+                    printf("\nError allocating memory..");
+                    free(shaa);
+                    fclose(fp);
+                    exit(0);
+                }
+
+                //Reading the total file on a memeory in one shot.
+                fread(buff, file_len, 1, fp);
+                fclose(fp);
+
+                //call function
+                er = calculate_sha1(shaa, buff, file_len);
+
+                if(er != 0)
+                {
+                    printf("\n Error calculating SHA1 hash.. \n");
+                    exit (0);
+                }
+
+
+
+            }
+        }
+    }
+
+    //print hash
+    printf("\n\nSHA1 HASH IS:\n");
+    for(i=0; i<5; i++)
+    {
+        printf("%X ",shaa->digest[i]);
+    }
+    printf("\n");
+    free(buff);
+    free(shaa);
+    return 0;
+}
+
