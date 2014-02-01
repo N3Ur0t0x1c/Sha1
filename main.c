@@ -1,3 +1,4 @@
+//(c) Niraj Khadka 2014
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
