@@ -91,6 +91,5 @@ int main(int argc, char*argv[])
     free(buff);
     free(shaa);
     return 0;
->>>>>>> pr/1
 }
 
