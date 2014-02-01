@@ -1,16 +1,9 @@
 #ifndef SHALIB_H_INCLUDED
 #define SHALIB_H_INCLUDED
-
 #define ROTL(bits,word) (((word) << (bits)) | ((word) >> (32-(bits))))
 typedef unsigned int uint32_t;
 void debug_print(char *, uint32_t);
-<<<<<<< HEAD
 uint32_t padded_length_in_bits(uint32_t len);
-
-=======
-uint32_t padded_length_in_bits(uint32_t);
-//int calculate_sha1(struct sha *, unsigned char *);
->>>>>>> pr/1
 
 struct sha
 {
@@ -20,9 +13,6 @@ struct sha
     int err;
 };
 
-
-<<<<<<< HEAD
-=======
 void debug_print(char *mss, uint32_t l)
 {
     int i;
@@ -201,5 +191,4 @@ int calculate_sha1(struct sha *sha1, unsigned char *text, uint32_t length)
     return 0;
 }
 
->>>>>>> pr/1
 #endif // SHALIB_H_INCLUDED
