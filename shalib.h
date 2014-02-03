@@ -13,16 +13,6 @@ struct sha
     int err;
 };
 
-void debug_print(char *mss, uint32_t l)
-{
-    int i;
-    printf("\nDEBUG PRINT START");
-    for(i=0; i<(l/8); i++)
-    {
-        printf("\n%c", *(mss+i));
-    }
-    printf("\nDEBUG PRINT END\n");
-}
 
 uint32_t padded_length_in_bits(uint32_t len)
 {
@@ -40,18 +30,20 @@ uint32_t padded_length_in_bits(uint32_t len)
 
 int calculate_sha1(struct sha *sha1, unsigned char *text, uint32_t length)
 {
-    //struct sha *sha1;
     unsigned int i,j;
-    //unsigned char text[] = "N3Ur0t0x1c";
     unsigned char *buffer;
-   // uint32_t length = strlen((char *)text);
     uint32_t bits;
     uint32_t temp,k;
     uint32_t lb = length*8;
-
-    //sha1 = (struct sha *) malloc(sizeof(struct sha));
+    
     bits = padded_length_in_bits(length);
     buffer = (unsigned char *) malloc((bits/8)+8);
+    if(buffer == NULL)
+    {
+    	printf("\nError allocating memory...");
+    	return 1;
+    }
+    
     memcpy(buffer, text, length);
 
 
@@ -63,11 +55,11 @@ int calculate_sha1(struct sha *sha1, unsigned char *text, uint32_t length)
     }
 
     /*append the length to the last words... using 32 bit only so the
-    //limitation will be this function can calculate up to 4GB files SHA1.
-	// *(buffer +(bits/8)-8) = (length>>56) & 0xFF;
-  	// *(buffer +(bits/8)-7) = (length>>48) & 0xFF;
-    // *(buffer +(bits/8)-6) = (length>>40) & 0xFF;
-    // *(buffer +(bits/8)-5) = (length>>32) & 0xFF;
+    limitation will be this function can calculate up to 2^32 bits files SHA1.
+	*(buffer +(bits/8)-8) = (length>>56) & 0xFF;
+  	*(buffer +(bits/8)-7) = (length>>48) & 0xFF;
+    *(buffer +(bits/8)-6) = (length>>40) & 0xFF;
+    *(buffer +(bits/8)-5) = (length>>32) & 0xFF;
     */
 
     *(buffer +(bits/8)+4+0) = (lb>>24) & 0xFF;
@@ -151,12 +143,6 @@ int calculate_sha1(struct sha *sha1, unsigned char *text, uint32_t length)
             sha1->b = (sha1->a);
             sha1->a = temp;
 
-            /* Detail of each pass for debugging purpose.
-            printf("\n\ndetail %d passes a b c d and e values..\n",j);
-            printf("a\tb\tc\td\te\n");
-            printf("%x\t%x\t%x\t%x\t%x\n",sha1->a, sha1->b, sha1->c, sha1->d, sha1->e);
-            */
-
             //reset temp to 0 to be in safe side only, not mandatory.
             temp =0x00;
 
@@ -176,18 +162,6 @@ int calculate_sha1(struct sha *sha1, unsigned char *text, uint32_t length)
 
     }
 
-	/*print SHA1 hash og given message.
-    printf("\n\nSHA1 HASH O IS:\n");
-    for(i=0; i<5; i++)
-    {
-        printf("%X ",sha1->digest[i]);
-    }
-    printf("\n");
-    */
-
-	//free the memory used.
-    //free(buffer);
-    //free(sha1);
     return 0;
 }
 
